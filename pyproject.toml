@@ -1,3 +1,4 @@
 [build-system]
+build-backend = "_binary_wheel_backend"
+backend-path = ["."]
 requires = ["setuptools", "Cython>=3.3.0"]
-build-backend = "setuptools.build_meta"

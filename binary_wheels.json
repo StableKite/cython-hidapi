@@ -1,0 +1,28 @@
+{
+  "source_commit": "8bc78b3aac2d339632194e9e0e8578efc85258d0",
+  "source_backend": "setuptools.build_meta",
+  "source_backend_path": [],
+  "minimum_glibc": [
+    2,
+    39
+  ],
+  "source_project": "1d870425e63832f8cdef8cfba59ead4b43610b1a581c52bf0b300513d8e250d4",
+  "delivery_paths": [
+    "_binary_wheel_backend.py",
+    "binary_wheels.json",
+    "README.binary-wheels.md",
+    "pyproject.toml",
+    "MANIFEST.in"
+  ],
+  "delivery_source_hashes": {
+    "_binary_wheel_backend.py": "fc4697ea1ee586c2ae3df2397be14ef13246f7b7b8f42485057e36c0852fe37a",
+    "README.binary-wheels.md": "05617ca74a60f542d4f2a146f8e5308158d123ba97856b6b3e0deebd3a5b1595",
+    "pyproject.toml": "832b92d3c9b2336837d18009ee16b171a62d0d5c62a7ad781a4694eb1bec7ea1",
+    "MANIFEST.in": "bca4466f031ba687e9982825a20ae420de407a07362705c6e45ceb74272a8137"
+  },
+  "artifact": {
+    "filename": "hidapi-0.15.0+stablekite.1-cp315-cp315t-manylinux_2_38_x86_64.manylinux_2_39_x86_64.whl",
+    "url": "https://github.com/StableKite/cython-hidapi/releases/download/cp315t-linux-r68-20261024/hidapi-0.15.0+stablekite.1-cp315-cp315t-manylinux_2_38_x86_64.manylinux_2_39_x86_64.whl",
+    "sha256": "382960ea0dae0afcf8f46ab7fb571088cc5aa96921088d9ab94493307de75987"
+  }
+}
