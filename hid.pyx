@@ -1,5 +1,9 @@
+# cython: freethreading_compatible=True
 import sys
 import weakref
+import threading
+from functools import wraps
+cimport cython
 
 cimport chid
 from chid cimport (
@@ -18,7 +22,7 @@ from chid cimport (
 from libc.stddef cimport wchar_t, size_t
 
 
-__version__ = "0.15.0"
+__version__ = "0.15.0+stablekite.1"
 
 # Constants from hidapi
 HID_API_MAX_REPORT_DESCRIPTOR_SIZE = chid.HID_API_MAX_REPORT_DESCRIPTOR_SIZE
@@ -122,7 +126,25 @@ cdef class _closer:
         return closer
 
     def close(self):
-        hid_close(self._ptr)
+        cdef hid_device *ptr
+        with cython.critical_section(self):
+            ptr = self._ptr
+            self._ptr = NULL
+        if ptr != NULL:
+            hid_close(ptr)
+
+cdef class device
+
+
+def _synchronized(method):
+    @wraps(method)
+    def locked(device self, *args, **kwargs):
+        # Keep a handle alive throughout native I/O, including with nogil.
+        # RLock also permits harmless same-thread callbacks from bytes().
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return locked
+
 
 cdef class device:
     """Device class.
@@ -133,7 +155,12 @@ cdef class device:
     cdef hid_device *_c_hid
     cdef object __weakref__  # enable weak-reference support
     cdef object _close
+    cdef object _lock
 
+    def __cinit__(self):
+        self._lock = threading.RLock()
+
+    @_synchronized
     def open(self, int vendor_id=0, int product_id=0, unicode serial_number=None):
         """Open the connection.
 
@@ -168,6 +195,7 @@ cdef class device:
             raise IOError('open failed')
         self._close = weakref.finalize(self, _closer.wrap(self._c_hid).close)
 
+    @_synchronized
     def open_path(self, bytes path):
         """Open connection by path.
 
@@ -183,6 +211,7 @@ cdef class device:
             raise IOError('open failed')
         self._close = weakref.finalize(self, _closer.wrap(self._c_hid).close)
 
+    @_synchronized
     def close(self):
         """Close connection.
 
@@ -193,6 +222,7 @@ cdef class device:
             self._close.detach()
             self._c_hid = NULL
 
+    @_synchronized
     def write(self, buff):
         """Accept a list of integers (0-255) and send them to the device.
 
@@ -201,13 +231,13 @@ cdef class device:
         :return: Write result
         :rtype: int
         """
-        if self._c_hid == NULL:
-            raise ValueError('not open')
         # convert to bytes
         if sys.version_info < (3, 0):
             buff = ''.join(map(chr, buff))
         else:
             buff = bytes(buff)
+        if self._c_hid == NULL:
+            raise ValueError('not open')
         cdef hid_device * c_hid = self._c_hid
         cdef unsigned char* cbuff = buff # covert to c string
         cdef size_t c_buff_len = len(buff)
@@ -216,6 +246,7 @@ cdef class device:
             result = hid_write(c_hid, cbuff, c_buff_len)
         return result
 
+    @_synchronized
     def set_nonblocking(self, int v):
         """Set the nonblocking flag.
 
@@ -228,6 +259,7 @@ cdef class device:
             raise ValueError('not open')
         return hid_set_nonblocking(self._c_hid, v)
 
+    @_synchronized
     def read(self, int max_length, int timeout_ms=0):
         """Return a list of integers (0-255) from the device up to max_length bytes.
 
@@ -268,6 +300,7 @@ cdef class device:
                 free(cbuff)
         return res
 
+    @_synchronized
     def get_manufacturer_string(self):
         """Return manufacturer string (e.g. vendor name).
 
@@ -285,6 +318,7 @@ cdef class device:
         return U(buff)
 
 
+    @_synchronized
     def get_product_string(self):
         """Return product string (e.g. device description).
 
@@ -301,6 +335,7 @@ cdef class device:
             raise IOError('get product string error')
         return U(buff)
 
+    @_synchronized
     def get_serial_number_string(self):
         """Return serial number.
 
@@ -317,6 +352,7 @@ cdef class device:
             raise IOError('get serial number string error')
         return U(buff)
 
+    @_synchronized
     def get_indexed_string(self, index):
         """Return indexed string.
 
@@ -334,6 +370,7 @@ cdef class device:
             raise IOError('get indexed string error')
         return U(buff)
 
+    @_synchronized
     def send_feature_report(self, buff):
         """Accept a list of integers (0-255) and send them to the device.
 
@@ -342,13 +379,13 @@ cdef class device:
         :return: Send result
         :rtype: int
         """
-        if self._c_hid == NULL:
-            raise ValueError('not open')
         # convert to bytes
         if sys.version_info < (3, 0):
             buff = ''.join(map(chr, buff))
         else:
             buff = bytes(buff)
+        if self._c_hid == NULL:
+            raise ValueError('not open')
         cdef hid_device * c_hid = self._c_hid
         cdef unsigned char* cbuff = buff  # covert to c string
         cdef size_t c_buff_len = len(buff)
@@ -357,6 +394,7 @@ cdef class device:
             result = hid_send_feature_report(c_hid, cbuff, c_buff_len)
         return result
 
+    @_synchronized
     def get_report_descriptor(self):
         """Return the HID Report Descriptor for this device.
 
@@ -377,6 +415,7 @@ cdef class device:
             raise IOError('read error')
         return list(cbuff[:n])
 
+    @_synchronized
     def get_feature_report(self, int report_num, int max_length):
         """Receive feature report.
 
@@ -391,8 +430,8 @@ cdef class device:
         """
         if self._c_hid == NULL:
             raise ValueError('not open')
-        if max_length < 0:
-            raise ValueError("max_length must not be negative")
+        if max_length <= 0:
+            raise ValueError("max_length must be positive")
         cdef hid_device * c_hid = self._c_hid
         cdef unsigned char lbuff[16]
         cdef unsigned char* cbuff
@@ -416,6 +455,7 @@ cdef class device:
                 free(cbuff)
         return res
 
+    @_synchronized
     def get_input_report(self, int report_num, int max_length):
         """Get input report
 
@@ -430,8 +470,8 @@ cdef class device:
         """
         if self._c_hid == NULL:
             raise ValueError('not open')
-        if max_length < 0:
-            raise ValueError("max_length must not be negative")
+        if max_length <= 0:
+            raise ValueError("max_length must be positive")
         cdef hid_device * c_hid = self._c_hid
         cdef unsigned char lbuff[16]
         cdef unsigned char* cbuff
@@ -455,6 +495,7 @@ cdef class device:
                 free(cbuff)
         return res
 
+    @_synchronized
     def error(self):
         """Get error from device, or global error if no device is opened.
 
