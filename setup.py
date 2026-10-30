@@ -76,7 +76,9 @@ def pkgconfig_configure_extension(ext, package):
 
 
 def hidapi_src(platform):
-    return os.path.join(embedded_hidapi_topdir, platform, "hid.c")
+    # setuptools otherwise repeats the absolute checkout path under build/temp,
+    # exceeding MSVC's object path limit for ordinary named VCS requirements.
+    return os.path.join("hidapi", platform, "hid.c")
 
 
 def hid_from_embedded_hidapi():

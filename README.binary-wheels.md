@@ -12,3 +12,10 @@ the source commit, artifact hash and the checked delivery metadata. Source
 builds retain their ordinary development-library prerequisites.
 
 These are engineering dependency artifacts, not a StableKite release.
+
+Embedded HIDAPI C source filenames are relative to the source root. This
+avoids duplicating pip's absolute checkout path in the MSVC object directory
+for named VCS requirements on Windows. Include directories, compiler/linker
+settings, native HIDAPI sources and the Cython runtime remain unchanged.
+The manifest records this build-path correction while retaining the original
+Linux binary and its exact runtime source snapshot.
